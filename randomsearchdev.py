@@ -22,11 +22,15 @@ posInit = (400,400)
 param = []
 bestParam = []
 bestDistance = 0
+isReplayingBest = False 
+firstReplay = True
+replayCounter = 0
 
-evaluations = 500
+evaluations = 20
+replay_iterations = 1000
 
 def step(robotId, sensors, position):
-    global evaluations, param, bestParam, bestDistance
+    global evaluations, replay_iterations, param, bestParam, bestDistance, isReplayingBest, firstReplay, replayCounter
 
     # cet exemple montre comment générer au hasard, et évaluer, des stratégies comportementales
     # Remarques:
@@ -35,15 +39,41 @@ def step(robotId, sensors, position):
     # - la fonction de controle est une combinaison linéaire des senseurs, pondérés par les paramètres
 
     # toutes les 400 itérations: le robot est remis au centre de l'arène avec une orientation aléatoire
+    
+    
     if rob.iterations % 400 == 0:
-            if rob.iterations > 0:
+            if not isReplayingBest:
                 dist = math.sqrt( math.pow( posInit[0] - position[0], 2 ) + math.pow( posInit[1] - position[1], 2 ) )
                 print ("Distance:",dist)
-            param = []
-            for i in range(0, 8):
-                param.append(random.randint(-1, 1))
-            rob.controllers[robotId].set_position(posInit[0], posInit[1])
-            rob.controllers[robotId].set_absolute_orientation(90)
+                
+                if dist > bestDistance:
+                    bestDistance = dist
+                    bestParam = param.copy()
+                    bestIteration = rob.iterations
+                    print(f"New best distance is : {bestDistance} at iteration {bestIteration} with parameters {bestParam}")
+                          
+            if isReplayingBest:
+                replayCounter += 1
+      
+                if firstReplay:
+                    rob.controllers[robotId].set_position(posInit[0], posInit[1])
+                    rob.controllers[robotId].set_absolute_orientation(90)  
+                    firstReplay = False  
+                if replayCounter >= replay_iterations // 400:
+                    replayCounter = 0    
+            else:
+                if rob.iterations // 400 >= evaluations and not isReplayingBest:
+                    print(f"Best parameters found : {bestParam} with distance {bestDistance}")
+                
+                    isReplayingBest = True
+                    firstReplay = True
+                    param = bestParam.copy()
+                    replayCounter = 0
+                    
+                param = [random.randint(-1, 1) for _ in range(8)]
+                
+                rob.controllers[robotId].set_position(posInit[0], posInit[1])
+                rob.controllers[robotId].set_absolute_orientation(90)
 
     # fonction de contrôle (qui dépend des entrées sensorielles, et des paramètres)
     translation = math.tanh ( param[0] + param[1] * sensors["sensor_front_left"]["distance"] + param[2] * sensors["sensor_front"]["distance"] + param[3] * sensors["sensor_front_right"]["distance"] );

@@ -22,11 +22,15 @@ posInit = (400,400)
 param = []
 bestParam = []
 bestDistance = 0
+evaluationRepeats = 3
+currentEvaluation = 0 
+sumDistance = 0
 
+compteurIteration = 0
 evaluations = 500
 
 def step(robotId, sensors, position):
-    global evaluations, param, bestParam, bestDistance
+    global evaluations, param, bestParam, bestDistance, compteurIteration, evaluationRepeats, currentEvaluation, sumDistance
 
     # cet exemple montre comment générer au hasard, et évaluer, des stratégies comportementales
     # Remarques:
@@ -35,13 +39,41 @@ def step(robotId, sensors, position):
     # - la fonction de controle est une combinaison linéaire des senseurs, pondérés par les paramètres
 
     # toutes les 400 itérations: le robot est remis au centre de l'arène avec une orientation aléatoire
+    
+    compteurIteration += 1 
     if rob.iterations % 400 == 0:
             if rob.iterations > 0:
                 dist = math.sqrt( math.pow( posInit[0] - position[0], 2 ) + math.pow( posInit[1] - position[1], 2 ) )
                 print ("Distance:",dist)
-            param = []
-            for i in range(0, 8):
-                param.append(random.randint(-1, 1))
+                sumDistance += dist
+                currentEvaluation += 1
+                
+                if currentEvaluation < evaluationRepeats:
+                    rob.controllers[robotId].set_position(posInit[0], posInit[1])
+                    rob.controllers[robotId].set_absolute_orientation(random.uniform(0, 360))
+                else:
+                    averageDistance = sumDistance / evaluationRepeats
+                    print("Average distance : ", averageDistance)
+                
+                    if averageDistance > bestDistance:
+                        bestDistance = averageDistance
+                        bestParam = param.copy()
+                        bestIteration = rob.iterations
+                        print(f"New best distance is : {bestDistance} at iteration {bestIteration} with parameters {bestParam}")
+                    
+                    currentEvaluation = 0
+                    sumDistance = 0
+            
+            if rob.iterations // 400 >= evaluations:
+                print(f"Best parameters found : {bestParam} with distance {bestDistance}")
+                print(f"compteur : {compteurIteration}")
+                if rob.iterations // 400 >= evaluations + 1000:
+                    print(f"compteurFinal : {compteurIteration}")
+                else:
+                    param = bestParam.copy()
+            else:
+                param = [random.randint(-1, 1) for _ in range(8)]
+                
             rob.controllers[robotId].set_position(posInit[0], posInit[1])
             rob.controllers[robotId].set_absolute_orientation(90)
 
